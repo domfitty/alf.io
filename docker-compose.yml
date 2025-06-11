@@ -36,8 +36,8 @@ services:
             - /home/domfitty/cloudflared_root:/root/.cloudflared
             - /home/domfitty/cloudflared_config:/config
         networks:
-            - alfio_static
+            - alfio_default
 
 networks:
-    alfio_static:
+    alfio_default:
         external: true
