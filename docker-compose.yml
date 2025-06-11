@@ -1,5 +1,5 @@
-volumes:
-    data-volume:
+#volumes:
+#    data-volume:
 
 services:
     db:
@@ -18,7 +18,7 @@ services:
               protocol: tcp
               mode: host
         volumes:
-            - data-volume:/var/lib/postgresql/data
+            - /home/domfitty/alfio/postgres-data:/var/lib/postgresql/data
 ###########################################################################
 # If you want to try out Alf.io, you can uncomment the following service: #
 ###########################################################################
