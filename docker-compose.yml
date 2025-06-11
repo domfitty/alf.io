@@ -1,47 +1,43 @@
 services:
-  db:
-    image: postgres:10
-    env_file:
-      - .env
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
-      interval: 10s
-      retries: 5
-      start_period: 30s
-      timeout: 10s
-    ports:
-      - target: 5432
-        published: 5432
-        protocol: tcp
-        mode: host
-    volumes:
-      - /home/domfitty/alfio/postgres-data:/var/lib/postgresql/data
-    networks:
-      alfio_static
+    db:
+        image: postgres:10
+        env_file:
+            - .env
+        healthcheck:
+            test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+            interval: 10s
+            retries: 5
+            start_period: 30s
+            timeout: 10s
+        ports:
+            - target: 5432
+              published: 5432
+              protocol: tcp
+              mode: host
+        volumes:
+            - /home/domfitty/alfio/postgres-data:/var/lib/postgresql/data
 
-  alfio:
-    image: alfio/alf.io
-    env_file:
-      - .env
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "7080:8080"
-    networks:
-      alfio_static
+    alfio:
+        image: alfio/alf.io
+        env_file:
+            - .env
+        depends_on:
+            db:
+                condition: service_healthy
+        ports:
+            - "7080:8080"
 
-  cloudflared:
-    image: wisdomsky/cloudflared-web:latest
-    restart: unless-stopped
-    ports:
-      - "14333:14333"
-    volumes:
-      - /home/domfitty/cloudflared_root:/root/.cloudflared
-      - /home/domfitty/cloudflared_config:/config
-    networks:
-      alfio_static
+    cloudflared:
+        image: wisdomsky/cloudflared-web:latest
+        restart: unless-stopped
+        ports:
+            - "14333:14333"
+        volumes:
+            - /home/domfitty/cloudflared_root:/root/.cloudflared
+            - /home/domfitty/cloudflared_config:/config
+        networks:
+            - alfio_default
 
 networks:
-  alfio_static:
-    external: true
+    alfio_default:
+        external: true
