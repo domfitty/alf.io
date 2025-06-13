@@ -6,7 +6,7 @@
         <meta name="description" content="{{#i18n}}ticket.ticket{{/i18n}}" />
 		<style>
 			body {
-				font-family:"DejaVu Sans Mono";
+				font-family: Arial, Helvetica, sans-serif;
 			}
 			h1,h2,p {margin:0;}
 			h1 {
