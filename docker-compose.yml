@@ -41,5 +41,5 @@ services:
             - alfio_default
 
 networks:
-    default:
+    alfio_default:
         external: false
