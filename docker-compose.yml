@@ -16,6 +16,8 @@ services:
               mode: host
         volumes:
             - /home/domfitty/alfio/postgres-data:/var/lib/postgresql/data
+        networks:
+            - alfio_default
 
     alfio:
         image: alfio/alf.io
