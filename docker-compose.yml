@@ -40,4 +40,4 @@ services:
 
 networks:
     alfio_default:
-        external: true
+        external: false
