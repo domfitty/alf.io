@@ -26,6 +26,8 @@ services:
                 condition: service_healthy
         ports:
             - "7080:8080"
+        networks:
+            - alfio_default
 
     cloudflared:
         image: wisdomsky/cloudflared-web:latest
@@ -39,5 +41,5 @@ services:
             - alfio_default
 
 networks:
-    alfio_default:
+    default:
         external: false
