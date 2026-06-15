@@ -48,6 +48,7 @@ import alfio.test.util.AlfioIntegrationTest;
 import alfio.test.util.IntegrationTestUtil;
 import alfio.util.ClockProvider;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,7 +80,7 @@ class ReservationApiV1ControllerTest {
     private static final String ANONYMOUS_RESERVATION_URL_PREFIX = BASE_URL + "/event";
     private static final String LOGGED_IN_RESERVATION_URL_PREFIX = BASE_URL + "/openid/event/";
     private static final String FIELD_NAME = "field1";
-    private static final AdditionalInfoRequest FIELD1_REQUEST = new AdditionalInfoRequest(null, FIELD_NAME, AdditionalInfoRequest.AdditionalInfoType.GENERIC_TEXT, true, List.of(new DescriptionRequest("en", "bla")), null, null, null);
+    private static final AdditionalInfoRequest FIELD1_REQUEST = new AdditionalInfoRequest(null, FIELD_NAME, AdditionalInfoRequest.AdditionalInfoType.GENERIC_TEXT, true, List.of(new DescriptionRequest("en", "bla")), null, null, null, null);
     private static final List<AdditionalInfoRequest> ADDITIONAL_INFO_REQUESTS = List.of(
         FIELD1_REQUEST
     );
@@ -149,6 +150,7 @@ class ReservationApiV1ControllerTest {
             null,
             null,
             "en",
+            null,
             null
         );
         var principal = new APITokenAuthentication(username, null, List.of());
@@ -156,12 +158,12 @@ class ReservationApiV1ControllerTest {
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
+        var href = body.href();
         assertTrue(StringUtils.startsWith(href, ANONYMOUS_RESERVATION_URL_PREFIX));
 
         var tickets = ticketRepository.findTicketsInReservation(reservationId);
@@ -182,7 +184,7 @@ class ReservationApiV1ControllerTest {
     void createSingleTicketAndVerifyWithAPI() {
         var category = ticketCategoryRepository.findFirstWithAvailableTickets(event.getId()).orElseThrow();
         var firstTicketProperties = Map.of("property", "value-first");
-        var ticket = new AttendeesByCategory(category.getId(), 1, List.of(new AttendeeData("Test", "Test1", "test@test.org", firstTicketProperties, Map.of(FIELD_NAME, List.of("value1")))), null);
+        var ticket = new AttendeesByCategory(category.getId(), 1, List.of(new AttendeeData("Test", "Test1", "test@test.org", "en",null, firstTicketProperties, Map.of(FIELD_NAME, List.of("value1")))), null);
         var creationRequest = new TicketReservationCreationRequest(
             List.of(ticket),
             List.of(),
@@ -196,6 +198,7 @@ class ReservationApiV1ControllerTest {
             ),
             null,
             "en",
+            null,
             null
         );
         var principal = new APITokenAuthentication(username, null, List.of());
@@ -203,9 +206,9 @@ class ReservationApiV1ControllerTest {
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
         var detailResponse = controller.retrieveDetail(PurchaseContext.PurchaseContextType.event, event.getPublicIdentifier(), reservationId, principal);
@@ -213,9 +216,11 @@ class ReservationApiV1ControllerTest {
         var detailBody = detailResponse.getBody();
         assertEquals(reservationId, detailBody.id());
         assertEquals(TicketReservation.TicketReservationStatus.PENDING, detailBody.status());
-        var resources = detailBody.tickets().get(0).getAttendees().get(0).getResources();
+        AttendeeData attendeeData = detailBody.tickets().get(0).getAttendees().get(0);
+        var resources = attendeeData.getResources();
         assertNull(resources.ticketPdf());
         assertNull(resources.ticketQrCode());
+        assertEquals("en", attendeeData.getUserLanguage());
         var confirmationRequest = new ReservationConfirmationRequest(
             new TransactionDetails("TRID", new BigDecimal("100.00"), LocalDateTime.now(clockProvider.getClock()), "notes", PaymentProxy.ON_SITE),
             new Notification(true, true),
@@ -273,6 +278,7 @@ class ReservationApiV1ControllerTest {
             null,
             null,
             "en",
+            null,
             null
         );
         var principal = new APITokenAuthentication(username, null, List.of());
@@ -280,12 +286,12 @@ class ReservationApiV1ControllerTest {
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
+        var href = body.href();
         assertTrue(StringUtils.startsWith(href, ANONYMOUS_RESERVATION_URL_PREFIX));
 
         var tickets = ticketRepository.findTicketsInReservation(reservationId);
@@ -314,12 +320,12 @@ class ReservationApiV1ControllerTest {
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
+        var href = body.href();
         assertTrue(StringUtils.startsWith(href, LOGGED_IN_RESERVATION_URL_PREFIX));
 
         var tickets = ticketRepository.findTicketsInReservation(reservationId);
@@ -343,19 +349,19 @@ class ReservationApiV1ControllerTest {
         var category = ticketCategoryRepository.findFirstWithAvailableTickets(event.getId()).orElseThrow();
         var firstTicketProperties = Map.of("property", "value-first");
         var creationRequest = getTicketReservationCreationRequest(new AttendeesByCategory(category.getId(), 1, List.of(
-            new AttendeeData("firstName", "lastName", "example@example.org", firstTicketProperties, null)
+            new AttendeeData("firstName", "lastName", "example@example.org", "en", null, firstTicketProperties, null)
         ), null));
         var principal = new APITokenAuthentication(username, null, List.of());
         var response = controller.createTicketsReservation(event.getShortName(), creationRequest, principal);
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
+        var href = body.href();
         assertFalse(StringUtils.startsWith(href, LOGGED_IN_RESERVATION_URL_PREFIX));
 
         var tickets = ticketRepository.findTicketsInReservation(reservationId);
@@ -389,6 +395,7 @@ class ReservationApiV1ControllerTest {
             user,
             null,
             "en",
+            null,
             null
         );
     }
@@ -398,19 +405,19 @@ class ReservationApiV1ControllerTest {
         var category = ticketCategoryRepository.findFirstWithAvailableTickets(event.getId()).orElseThrow();
         var firstTicketProperties = Map.of("property", "value-first");
         var creationRequest = getTicketReservationCreationRequest(new AttendeesByCategory(category.getId(), 1, List.of(
-            new AttendeeData("firstName", "lastName", "example@example.org", firstTicketProperties, Map.of(FIELD_NAME, List.of("value1")))
+            new AttendeeData("firstName", "lastName", "example@example.org", "en", null, firstTicketProperties, Map.of(FIELD_NAME, List.of("value1")))
         ), null));
         var principal = new APITokenAuthentication(username, null, List.of());
         var response = controller.createTicketsReservation(event.getShortName(), creationRequest, principal);
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
+        var href = body.href();
         assertFalse(StringUtils.startsWith(href, LOGGED_IN_RESERVATION_URL_PREFIX));
 
         var tickets = ticketRepository.findTicketsInReservation(reservationId);
@@ -440,21 +447,21 @@ class ReservationApiV1ControllerTest {
         var category = ticketCategoryRepository.findFirstWithAvailableTickets(event.getId()).orElseThrow();
         var firstTicketProperties = Map.of("property", "value-first");
         var creationRequest = getTicketReservationCreationRequest(new AttendeesByCategory(category.getId(), 2, List.of(
-            new AttendeeData("firstName", "lastName", "example@example.org", firstTicketProperties, null),
-            new AttendeeData("firstName", "lastName", "example@example.org", firstTicketProperties, null)
+            new AttendeeData("firstName", "lastName", "example@example.org", "en", null, firstTicketProperties, null),
+            new AttendeeData("firstName", "lastName", "example@example.org", "en", null, firstTicketProperties, null)
         ), null));
         var principal = new APITokenAuthentication(username, null, List.of());
         var response = controller.createTicketsReservation(event.getShortName(), creationRequest, principal);
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
-        assertFalse(StringUtils.startsWith(href, LOGGED_IN_RESERVATION_URL_PREFIX));
+        var href = body.href();
+        assertFalse(Strings.CS.startsWith(href, LOGGED_IN_RESERVATION_URL_PREFIX));
 
         var tickets = ticketRepository.findTicketsInReservation(reservationId);
         assertEquals(2, tickets.size());
@@ -615,7 +622,7 @@ class ReservationApiV1ControllerTest {
         assertNotNull(reservationResponse.getBody());
         var body = Objects.requireNonNull(reservationResponse.getBody());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         var reservation = ticketReservationRepository.findReservationById(reservationId);
         assertEquals("Test", reservation.getFirstName());
         assertEquals("Test1", reservation.getLastName());
@@ -636,7 +643,7 @@ class ReservationApiV1ControllerTest {
         var category = ticketCategoryRepository.findFirstWithAvailableTickets(event.getId()).orElseThrow();
         var firstTicketProperties = Map.of("property", "value-first");
         var ticket = new AttendeesByCategory(category.getId(), 1, List.of(
-            new AttendeeData("firstName", "lastName", "example@example.org", firstTicketProperties, Map.of())
+            new AttendeeData("firstName", "lastName", "example@example.org", "en", null, firstTicketProperties, Map.of())
         ), null);
         var user = new ReservationUser(
             "test@example.org",
@@ -652,19 +659,20 @@ class ReservationApiV1ControllerTest {
             user,
             null,
             "en",
-            subscriptionId
+            subscriptionId,
+            null
         );
         var principal = new APITokenAuthentication(username, null, List.of());
         var response = controller.createTicketsReservation(event.getShortName(), creationRequest, principal);
         assertTrue(response.getStatusCode().is2xxSuccessful());
         var body = response.getBody();
         assertNotNull(body);
-        assertNull(body.getErrors());
+        assertNull(body.errors());
         assertTrue(body.isSuccess());
-        var reservationId = body.getId();
+        var reservationId = body.id();
         assertNotNull(reservationId);
         assertFalse(reservationId.isBlank());
-        var href = body.getHref();
+        var href = body.href();
         assertFalse(StringUtils.startsWith(href, LOGGED_IN_RESERVATION_URL_PREFIX));
         assertTrue(StringUtils.endsWith(href, "subscription="+subscriptionId));
         var tickets = ticketRepository.findTicketsInReservation(reservationId);

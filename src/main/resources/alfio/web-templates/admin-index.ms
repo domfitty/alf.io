@@ -32,6 +32,7 @@
         window.ALFIO_CONTEXT_PATH = "{{contextPath}}";
         window.USER_IS_OWNER = {{isOwner}};
         window.SUPPORTED_LANGUAGES = {{#render-json}}supportedLanguages{{/render-json}};
+        window.BASE_URL = "{{baseUrl}}"
     </script>
     <script nonce="{{nonce}}" src="{{contextPath}}/resources/bower_components/jquery/dist/jquery.min.js"></script>
     <script nonce="{{nonce}}" src="{{contextPath}}/resources/bower_components/lodash/lodash.min.js"></script>
@@ -70,7 +71,6 @@
     <script nonce="{{nonce}}" src="{{contextPath}}/resources/js/admin/feature/active-events-list/active-events-list.js"></script>
 
     <script nonce="{{nonce}}" src="{{contextPath}}/resources/js/admin/feature/additional-fields-to-collect/additional-fields-to-collect.js"></script>
-
     <script nonce="{{nonce}}" src="{{contextPath}}/resources/js/admin/feature/promo-codes/promo-codes.js"></script>
 
     <script nonce="{{nonce}}" src="{{contextPath}}/resources/js/admin/feature/tickets-remove/tickets-remove.js"></script>
