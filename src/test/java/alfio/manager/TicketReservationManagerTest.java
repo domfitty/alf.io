@@ -51,7 +51,6 @@ import alfio.repository.user.UserRepository;
 import alfio.test.util.TestUtil;
 import alfio.util.*;
 import ch.digitalfondue.npjt.AffectedRowCountAndKey;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
@@ -1453,7 +1452,7 @@ class TicketReservationManagerTest {
     }
 
     @Test
-    void testCustomOfflinePaymentMethodProperlyMatchesDeniedMethods() throws JsonProcessingException {
+    void testCustomOfflinePaymentMethodProperlyMatchesDeniedMethods() {
         var allowedPaymentMethod = new UserDefinedOfflinePaymentMethod(
             "abe32b76-9b9e-4f4b-b058-38c797fe80ff",
             Map.of("en", new UserDefinedOfflinePaymentMethod.Localization(
@@ -1528,6 +1527,8 @@ class TicketReservationManagerTest {
             when(purchaseContextManager.findByReservationId(PENDING_RESERVATION_ID)).thenReturn(Optional.of(purchaseContextMock));
             when(transactionRepository.loadOptionalByReservationIdAndStatusForUpdate(PENDING_RESERVATION_ID, Transaction.Status.PENDING))
                 .thenReturn(Optional.of(transactionMock));
+            when(ticketReservationRepository.findOptionalReservationByIdForUpdate(PENDING_RESERVATION_ID))
+                .thenReturn(Optional.of(pendingReservationMock));
         }
 
         @Test
@@ -1545,6 +1546,7 @@ class TicketReservationManagerTest {
             verify(waitingQueueManager).cleanExpiredReservations(expiredReservationIds);
             verify(ticketReservationRepository).findReservationsWithPendingTransaction(reservationIds);
             verify(ticketReservationRepository).findOptionalStatusAndValidationById(PENDING_RESERVATION_ID);
+            verify(ticketReservationRepository).findOptionalReservationByIdForUpdate(PENDING_RESERVATION_ID);
             verifyNoMoreInteractions(ticketReservationRepository, specialPriceRepository, ticketRepository, applicationEventPublisher);
         }
 
@@ -1575,6 +1577,7 @@ class TicketReservationManagerTest {
             verify(transactionRepository).loadOptionalByReservationId(PENDING_RESERVATION_ID);
             verify(ticketReservationRepository).updateReservationStatus(PENDING_RESERVATION_ID, TicketReservationStatus.PENDING.toString());
             verify(ticketReservationRepository).findReservationsWithPendingTransaction(reservationIds);
+            verify(ticketReservationRepository).findOptionalReservationByIdForUpdate(PENDING_RESERVATION_ID);
             verify(stripeManager).discardTransaction(transactionMock, purchaseContextMock);
             verifyNoMoreInteractions(ticketReservationRepository, specialPriceRepository, ticketRepository);
         }

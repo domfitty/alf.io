@@ -117,7 +117,7 @@ public class DataPreloaderManager {
                     .ifPresent(html -> html.setAttribute("data-signed-up", "true"));
             }
             idx.getElementsByTagName("script").forEach(element -> element.setAttribute(NONCE, nonce));
-            var head = idx.getElementsByTagName("head").get(0);
+            var head = idx.getElementsByTagName("head").getFirst();
             head.appendChild(buildScripTag(json.asJsonString(configurationManager.getInfo(session)), APPLICATION_JSON, "preload-info", null));
             var httpServletRequest = requireNonNull(request.getNativeRequest(HttpServletRequest.class));
             head.appendChild(buildMetaTag("GID", request.getSessionId()));
@@ -153,16 +153,16 @@ public class DataPreloaderManager {
 
         var title = messageSourceManager.getMessageSourceFor(event).getMessage("event.get-your-ticket-for", new String[] {event.getDisplayName()}, locale);
 
-        var head = eventOpenGraph.getElementsByTagName("head").get(0);
+        var head = eventOpenGraph.getElementsByTagName("head").getFirst();
 
-        eventOpenGraph.getElementsByTagName("html").get(0).setAttribute("lang", locale.getLanguage());
+        eventOpenGraph.getElementsByTagName("html").getFirst().setAttribute("lang", locale.getLanguage());
 
         //
 
         getMetaElement(eventOpenGraph, "name", "twitter:image").setAttribute(CONTENT, baseUrl + "/file/" + event.getFileBlobId());
         //
 
-        eventOpenGraph.getElementsByTagName("title").get(0).appendChild(new Text(title));
+        eventOpenGraph.getElementsByTagName("title").getFirst().setTextContent(title);
         getMetaElement(eventOpenGraph, PROPERTY, "og:title").setAttribute(CONTENT, title);
         getMetaElement(eventOpenGraph, PROPERTY,"og:image").setAttribute(CONTENT, baseUrl + "/file/" + event.getFileBlobId());
 
@@ -202,7 +202,7 @@ public class DataPreloaderManager {
     }
 
     private static Element getMetaElement(Document document, String attrName, String propertyValue) {
-        return (Element) document.getAllNodesMatching(Selector.select().element("meta").attrValEq(attrName, propertyValue).toMatcher(), true).get(0);
+        return (Element) document.getAllNodesMatching(Selector.select().element("meta").attrValEq(attrName, propertyValue).toMatcher(), true).getFirst();
     }
 
     /**
@@ -234,21 +234,24 @@ public class DataPreloaderManager {
     }
 
     public static void preloadEventData(String eventShortName,
-                                 ServletWebRequest request,
-                                 HttpSession session,
-                                 EventLoader eventLoader,
-                                 Element head,
-                                 MessageSourceManager messageSourceManager,
-                                 Node idx,
-                                 Json json,
-                                 String lang) {
+                                        ServletWebRequest request,
+                                        HttpSession session,
+                                        EventLoader eventLoader,
+                                        Element head,
+                                        MessageSourceManager messageSourceManager,
+                                        Node idx,
+                                        Json json,
+                                        String lang) {
         String preloadLang = Objects.requireNonNullElse(lang, "en");
         if (eventShortName != null) {
             var eventInfoOptional = eventLoader.loadEventInfo(eventShortName, session);
             if (eventInfoOptional.isPresent()) {
                 var ev = eventInfoOptional.get();
                 head.appendChild(buildScripTag(json.asJsonString(ev), APPLICATION_JSON, "preload-event", eventShortName));
-                preloadLang = getMatchingLocale(request, ev.getContentLanguages().stream().map(Language::getLocale).toList(), lang).getLanguage();
+                var matchingLocale = getMatchingLocale(request, ev.getContentLanguages().stream().map(Language::getLocale).toList(), lang);
+                preloadLang = matchingLocale.getLanguage();
+                var title = messageSourceManager.getMessageSourceFor(ev.purchaseContext()).getMessage("event.get-your-ticket-for", new String[] {ev.getDisplayName()}, matchingLocale);
+                Optional.ofNullable(IterableUtils.get(head.getElementsByTagName("title"), 0)).ifPresent(e -> e.setTextContent(title));
                 if (ZonedDateTime.now(ClockProvider.clock()).isAfter(((Event)ev.purchaseContext()).getEnd())) {
                     // event is over.
                     head.appendChild(buildMetaTag("robots", "noindex"));

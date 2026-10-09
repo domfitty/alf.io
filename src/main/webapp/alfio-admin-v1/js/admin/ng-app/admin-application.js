@@ -8,7 +8,7 @@
     var ERROR_CODES = { DUPLICATE:'duplicate', MAX_LENGTH:'maxlength', MIN_LENGTH:'minlength'};
 
     var admin = angular.module('adminApplication', ['ngSanitize','ui.bootstrap', 'ui.router', 'adminDirectives',
-        'adminServices', 'utilFilters', 'ngMessages', 'ngFileUpload', 'nzToggle', 'alfio-email', 'alfio-util', 'alfio-configuration', 'alfio-event-statistic',
+        'adminServices', 'utilFilters', 'ngMessages', 'ngFileUpload', 'nzToggle', 'alfio-util', 'alfio-configuration', 'alfio-event-statistic',
         'ui.ace', 'checklist-model', 'group', 'subscriptions', angularDragula(angular)]);
 
     var loadEvent = {
@@ -26,35 +26,67 @@
         $stateProvider
             .state('index', {
                 url: "/",
-                template: ['<div class="container" container-fluid-responsive="">',
-                               '<h1>Events</h1>',
-                               '<hr />',
-                               '<export-reservations-button></export-reservations-button>',
-                               '<active-events-list></active-events-list>',
-                               '<expired-events-list></expired-events-list>',
-                           '</div>'].join('')
+                template: '<alfio-events-page></alfio-events-page>'
             })
             .state('organizations', {
                 url: "/organizations/",
-                template: "<organizations></organizations>"
+                template: "<div organizations-page><alfio-organization-list></alfio-organization-list><alfio-organization-edit></alfio-organization-edit><ui-view></ui-view></div>"
             })
             .state('organizations.new', {
                 url: "new",
-                views: {
-                    "newOrganization": {
-                        template: "<organization-edit type='new'></organization-edit>"
-                    }
-                }
+                template: '',
+                controller: ['$state', '$timeout', '$scope', function($state, $timeout, $scope) {
+                    var timeoutId = $timeout(function() {
+                        if ($state.current.name !== 'organizations.new') {
+                            return;
+                        }
+                        var container = document.querySelector('div[organizations-page]');
+                        if (!container) {
+                            $state.go('organizations');
+                            return;
+                        }
+                        var editEl = container.querySelector('alfio-organization-edit');
+                        if (editEl && typeof editEl.open === 'function') {
+                            editEl.open({ type: 'new' });
+                        } else {
+                            $state.go('organizations');
+                        }
+                    });
+                    $scope.$on('$destroy', function() {
+                        $timeout.cancel(timeoutId);
+                    });
+                }]
             })
             .state('organizations.edit', {
                 url: ":organizationId/edit",
-                views: {
-                    "newOrganization": {
-                        template: "<organization-edit type='edit' organization-id='$ctrl.$state.params.organizationId'></organization-edit>",
-                        controller: ['$state', function($state) {this.$state = $state;}],
-                        controllerAs: '$ctrl'
+                template: '',
+                controller: ['$state', '$timeout', '$scope', function($state, $timeout, $scope) {
+                    var rawId = String($state.params.organizationId);
+                    var orgId = parseInt(rawId, 10);
+                    if (!/^\d+$/.test(rawId) || !Number.isSafeInteger(orgId) || orgId < 1 || orgId > 2147483647) {
+                        $state.go('organizations');
+                        return;
                     }
-                }
+                    var timeoutId = $timeout(function() {
+                        if ($state.current.name !== 'organizations.edit' || parseInt($state.params.organizationId, 10) !== orgId) {
+                            return;
+                        }
+                        var container = document.querySelector('div[organizations-page]');
+                        if (!container) {
+                            $state.go('organizations');
+                            return;
+                        }
+                        var editEl = container.querySelector('alfio-organization-edit');
+                        if (editEl && typeof editEl.open === 'function') {
+                            editEl.open({ type: 'edit', organizationId: orgId });
+                        } else {
+                            $state.go('organizations');
+                        }
+                    });
+                    $scope.$on('$destroy', function() {
+                        $timeout.cancel(timeoutId);
+                    });
+                }]
             })
             .state('system-edit-resources', {
                 url: '/show-resources/:resourceName/',
@@ -75,59 +107,15 @@
             })
             .state('users', {
                 url: "/users/",
-                template: "<users data-title='Users' type='user'></users>"
-            })
-            .state('users.new', {
-                url: "new",
-                views: {
-                    "editUser": {
-                        template: "<user-edit type='new' for='user'></user-edit>"
-                    }
-                }
-            })
-            .state('users.edit', {
-                url: ":userId/edit",
-                views: {
-                    "editUser": {
-                        template: "<user-edit type='edit' for='user' user-id='$ctrl.$state.params.userId'></user-edit>",
-                        controller: ['$state', function($state) {this.$state = $state;}],
-                        controllerAs: '$ctrl'
-                    }
-                }
+                template: "<alfio-users alfio-title='Users' type='user'></alfio-users>"
             })
             .state('apikey', {
                 url: "/api-keys/",
-                template: "<users data-title='Api Keys' type='apikey'></users>"
-            })
-            .state('apikey.new', {
-                url: "new",
-                views: {
-                    "editUser": {
-                        template: "<user-edit type='new' for='apikey'></user-edit>"
-                    }
-                }
-            })
-            .state('apikey.edit', {
-                url: ":userId/edit",
-                views: {
-                    "editUser": {
-                        template: "<user-edit type='edit' for='apikey' user-id='$ctrl.$state.params.userId'></user-edit>",
-                        controller: ['$state', function($state) {this.$state = $state;}],
-                        controllerAs: '$ctrl'
-                    }
-                }
-            })
-            .state('apikey.bulk', {
-                url: "bulk-creation",
-                views: {
-                    "editUser": {
-                        template: "<api-key-bulk-import></api-key-bulk-import>"
-                    }
-                }
+                template: "<alfio-users alfio-title='Api Keys' type='apikey'></alfio-users>"
             })
             .state('edit-current-user', {
                 url: "/profile/edit",
-                template: '<user-edit-current></user-edit-current>'
+                template: '<alfio-user-profile-edit></alfio-user-profile-edit>'
             })
             .state('events', {
                 abstract: true,
@@ -178,7 +166,7 @@
             })
             .state('events.single.promoCodes', {
                 url:'/promo-codes',
-                template:'<promo-codes for-event="true" event="$ctrl.loadEvent"></promo-codes>',
+                template:'<alfio-promo-code data-event-name="{{$ctrl.loadEvent.shortName}}" data-organization-id="{{$ctrl.loadEvent.organizationId}}" data-for-event="true"></alfio-promo-code>',
                 controller: loadEventCtrl,
                 controllerAs: '$ctrl',
                 resolve: loadEvent
@@ -223,21 +211,41 @@
             })
             .state('events.single.reservationsList', {
                 url: '/reservations/?search',
-                template: '<reservations-list purchase-context="ctrl.event" purchase-context-type="ctrl.purchaseContextType"></reservations-list>',
-                controller: function(getEvent) {
-                    this.event = getEvent.data.event;
-                    this.purchaseContextType = 'event';
-                },
-                controllerAs: 'ctrl'
+                // The Lit component owns filtering; query changes must preserve its DOM.
+                reloadOnSearch: false,
+                template: '<alfio-reservations-list data-event-name="{{$ctrl.loadEvent.shortName}}"></alfio-reservations-list>',
+                controller: loadEventCtrl,
+                controllerAs: '$ctrl',
+                resolve: loadEvent
             })
             .state('events.single.paymentsList', {
                 url: '/transactions/?search',
-                template: '<payments-list purchase-context="ctrl.event" purchase-context-type="ctrl.purchaseContextType"></payments-list>',
-                controller: function(getEvent) {
-                    this.event = getEvent.data.event;
-                    this.purchaseContextType = 'event';
-                },
-                controllerAs: 'ctrl'
+                // The Lit component owns filtering; query changes must preserve its DOM.
+                reloadOnSearch: false,
+                template: '<alfio-payments-list data-event-name="{{$ctrl.loadEvent.shortName}}"></alfio-payments-list>',
+                controller: loadEventCtrl,
+                controllerAs: '$ctrl',
+                resolve: loadEvent
+            })
+            .state('events.single.email-log', {
+                url: '/email-log?search&page',
+                // The Lit component owns filtering; query changes must preserve its DOM.
+                reloadOnSearch: false,
+                template: '<alfio-email-log data-purchase-context-type="event" data-public-identifier="{{$ctrl.loadEvent.shortName}}"></alfio-email-log>',
+                controller: loadEventCtrl,
+                controllerAs: '$ctrl',
+                resolve: loadEvent
+            })
+            .state('events.single.email-log-detail', {
+                url: '/email-log/:messageId?search&page',
+                reloadOnSearch: false,
+                template: '<alfio-email-log data-purchase-context-type="event" data-public-identifier="{{$ctrl.loadEvent.shortName}}" data-message-id="{{$ctrl.messageId}}"></alfio-email-log>',
+                controller: ['loadEvent', '$stateParams', function(loadEvent, $stateParams) {
+                    this.loadEvent = loadEvent.data.event;
+                    this.messageId = $stateParams.messageId;
+                }],
+                controllerAs: '$ctrl',
+                resolve: loadEvent
             })
             .state('events.single.ticketsList', {
                 url: '/category/:categoryId/tickets',
@@ -251,16 +259,20 @@
             })
             .state('events.single.pending-payments', {
                 url: '/pending-payments/',
-                templateUrl: BASE_STATIC_URL + '/pending-payments/index.html',
-                controller: 'PendingPaymentsController',
+                template: '<alfio-pending-payments data-event-name="{{$ctrl.loadEvent.shortName}}"></alfio-pending-payments>',
+                controller: loadEventCtrl,
+                controllerAs: '$ctrl',
+                resolve: loadEvent,
                 data: {
                     view: 'PENDING_RESERVATIONS'
                 }
             })
             .state('events.single.compose-custom-message', {
                 url: '/compose-custom-message',
-                templateUrl: BASE_STATIC_URL + '/custom-message/index.html',
-                controller: 'ComposeCustomMessage',
+                template: '<alfio-compose-message data-event-name="{{$ctrl.loadEvent.shortName}}"></alfio-compose-message>',
+                controller: loadEventCtrl,
+                controllerAs: '$ctrl',
+                resolve: loadEvent,
                 data: {
                     view: 'CUSTOM_MESSAGE'
                 }
@@ -319,20 +331,15 @@
                 }
             }).state('events.single.view-reservation', {
                 url:'/reservation/:reservationId?fromCreation',
-                template: '<reservation-view purchase-context="ctrl.event" purchase-context-type="ctrl.purchaseContextType" reservation-descriptor="ctrl.reservationDescriptor"></reservation-view>',
-                controller: function(getEvent, getReservationDescriptor) {
-                    this.event = getEvent.data.event;
-                    this.purchaseContextType = 'event';
-                    this.reservationDescriptor = getReservationDescriptor.data.data;
+                template: '<alfio-reservation-detail data-purchase-context-type="event" data-public-identifier="{{ctrl.eventName}}" data-reservation-id="{{ctrl.reservationId}}" data-from-creation="{{ctrl.fromCreation}}"></alfio-reservation-detail>',
+                controller: function($stateParams) {
+                    this.eventName = $stateParams.eventName;
+                    this.reservationId = $stateParams.reservationId;
+                    this.fromCreation = $stateParams.fromCreation;
                 },
                 controllerAs: 'ctrl',
                 data: {
                     view: 'VIEW_RESERVATION'
-                },
-                resolve: {
-                    'getReservationDescriptor': function(AdminReservationService, $stateParams) {
-                        return AdminReservationService.load('event', $stateParams.eventName, $stateParams.reservationId);
-                    }
                 }
             }).state('events.single.polls-list', {
                 url:'/polls/list',
@@ -406,8 +413,65 @@
             }).state('extension.log', {
                 url: '/log',
                 template: '<extension-log></extension-log>'
-            });
-    });
+             });
+     });
+
+    admin.directive('organizationsPage', ['$state', '$rootScope', function($state, $rootScope) {
+        return {
+            restrict: 'A',
+            link: function(scope, element) {
+                var container = element[0];
+
+                var handleAction = function(e) {
+                    if (!e.detail) {
+                        return;
+                    }
+                    var targetState = e.detail.type === 'new' ? 'organizations.new'
+                                   : e.detail.type === 'edit' ? 'organizations.edit'
+                                   : null;
+                    if (targetState && $state.current.name !== targetState) {
+                        var params = e.detail.type === 'edit' ? { organizationId: e.detail.organizationId } : {};
+                        $state.go(targetState, params, { location: true });
+                    }
+                };
+
+                var handleDialogClosed = function(e) {
+                    var editEl = container.querySelector('alfio-organization-edit');
+                    if (editEl && typeof editEl.hide === 'function') {
+                        editEl.hide();
+                    }
+                    if (e.detail && e.detail.success) {
+                        var listEl = container.querySelector('alfio-organization-list');
+                        if (listEl && typeof listEl.refresh === 'function') {
+                            listEl.refresh();
+                        }
+                    }
+                    if ($state.current.name !== 'organizations') {
+                        $state.go('organizations', {}, { location: true });
+                    }
+                };
+
+                var handleStateChange = function(event, toState, toParams, fromState, fromParams) {
+                    if (fromState && (fromState.name === 'organizations.new' || fromState.name === 'organizations.edit') && toState && toState.name !== fromState.name) {
+                        var editEl = container.querySelector('alfio-organization-edit');
+                        if (editEl && typeof editEl.hide === 'function') {
+                            editEl.hide();
+                        }
+                    }
+                };
+
+                container.addEventListener('alfio-organization-action', handleAction);
+                container.addEventListener('alfio-dialog-closed', handleDialogClosed);
+                var deregisterStateChangeListener = $rootScope.$on('$stateChangeSuccess', handleStateChange);
+
+                scope.$on('$destroy', function() {
+                    container.removeEventListener('alfio-organization-action', handleAction);
+                    container.removeEventListener('alfio-dialog-closed', handleDialogClosed);
+                    deregisterStateChangeListener();
+                });
+            }
+        };
+    }]);
 
     navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
 
@@ -1643,30 +1707,16 @@
                 templateUrl: BASE_STATIC_URL + '/event/show-reservation-modal.html',
                 backdrop: 'static',
                 controllerAs: 'ctrl',
-                controller: function($scope) {
+                controller: function() {
                     var ctrl = this;
-                    ctrl.event = event;
-                    ctrl.purchaseContextType = 'event';
-                    ctrl.resetReservationView = false;
-                    ctrl.showReservation = false;
-                    var reservationInfo = {eventName: event.shortName, reservationId: ticket.ticketsReservationId}
-                    AdminReservationService.load('event', reservationInfo.eventName, reservationInfo.reservationId).then(function (reservationDescriptor) {
-                        ctrl.reservationDescriptor = reservationDescriptor.data.data;
-                        ctrl.showReservation = true;
-                    });
-
+                    ctrl.eventName = event.shortName;
+                    ctrl.reservationId = ticket.ticketsReservationId;
                     ctrl.onClose = function() {
                         modal.close();
-                    }
-
-                    ctrl.onUpdate = function(reservationInfo) {
-                        ctrl.resetReservationView = true;
+                    };
+                    ctrl.onUpdate = function() {
                         reloadTickets();
-                        AdminReservationService.load('event', reservationInfo.eventName, reservationInfo.reservationId).then(function (reservationDescriptor) {
-                            ctrl.reservationDescriptor = reservationDescriptor.data.data;
-                            ctrl.resetReservationView = false;
-                        })
-                    }
+                    };
                 }
             })
         };
@@ -1679,38 +1729,31 @@
                 templateUrl: BASE_STATIC_URL + '/event/new-reservation-modal.html',
                 backdrop: 'static',
                 controllerAs: 'ctrl',
-                controller: function($scope) {
+                controller: function() {
                     var ctrl = this;
-                    ctrl.resetReservationView = false;
-                    ctrl.showReservation = false;
+                    ctrl.reservationId = null;
                     ctrl.event = event;
-                    ctrl.purchaseContextType = 'event';
                     ctrl.close = function() {
                         modal.close();
                     };
-                    ctrl.onCreation = function(reservationInfo) {
-                        AdminReservationService.confirm('event', reservationInfo.eventName, reservationInfo.reservationId).then(function(reservationDescriptor) {
-                            ctrl.onConfirm(reservationInfo);
-                        }, function(err) {
-                            AdminReservationService.load('event', reservationInfo.eventName, reservationInfo.reservationId).then(function (reservationDescriptor) {
-                                ctrl.reservationDescriptor = reservationDescriptor.data.data;
-                                ctrl.showReservation = true;
-                            });
-                        });
-                    };
-                    ctrl.onUpdate = function(reservationInfo) {
-                        ctrl.resetReservationView = true;
-                        AdminReservationService.load('event', reservationInfo.eventName, reservationInfo.reservationId).then(function (reservationDescriptor) {
-                            ctrl.reservationDescriptor = reservationDescriptor.data.data;
-                            ctrl.resetReservationView = false;
-                        })
-                    };
-
-                    ctrl.onConfirm = function(reservationInfo) {
+                    var onConfirm = function(reservationId) {
                         reloadTickets();
                         modal.close();
-                        parentScope.selection.freeText = reservationInfo.reservationId;
-                    }
+                        parentScope.selection.freeText = reservationId;
+                    };
+                    ctrl.onCreation = function(reservationInfo) {
+                        AdminReservationService.confirm('event', reservationInfo.eventName, reservationInfo.reservationId).then(function() {
+                            onConfirm(reservationInfo.reservationId);
+                        }, function() {
+                            // let the user fix the reservation
+                            ctrl.reservationId = reservationInfo.reservationId;
+                        });
+                    };
+                    ctrl.onUpdate = function(detail) {
+                        if (detail.confirmed) {
+                            onConfirm(detail.reservationId);
+                        }
+                    };
                 }
             });
         };
@@ -2025,223 +2068,6 @@
         $rootScope.$on('Message', function(m) {
             $scope.message = m;
         });
-    });
-
-    admin.controller('PendingPaymentsController', function($scope, EventService, $stateParams, $log, $window, $uibModal, ReservationIdentifierConfiguration) {
-
-        EventService.getEvent($stateParams.eventName).then(function(result) {
-            $scope.event = result.data.event;
-            getPendingPayments();
-        });
-
-        var getPendingPayments = function(force) {
-            EventService.getPendingPayments($stateParams.eventName, force).success(function(data) {
-                var pendingReservations = data.map(function(pending) {
-
-                    ReservationIdentifierConfiguration.getReservationIdentifier('event', $scope.event.shortName, pending.ticketReservation, false).then(function(result) {
-                        pending.publicId = result;
-                    });
-                    return pending;
-                });
-                $scope.pendingReservations = pendingReservations;
-                $scope.orderByFieldDesc = {};
-
-                $scope.changeSorting = function(field) {
-                    $scope.orderByField = field;
-                    var sortDesc = false;
-                    if(angular.isDefined($scope.orderByFieldDesc[field])) {
-                        sortDesc = !$scope.orderByFieldDesc[field];
-                    }
-                    $scope.orderByFieldDesc[field]=sortDesc;
-                    var sorted = _.sortBy(pendingReservations, field);
-                    if(sortDesc) {
-                        sorted = _(sorted).reverse().value()
-                    }
-                    $scope.pendingReservations = sorted;
-                };
-
-                $scope.sortingIndicator = function(field) {
-                    if($scope.orderByField === field) {
-                        return $scope.orderByFieldDesc[field] ? 'fa-sort-desc' : 'fa-sort-asc';
-                    }
-                    return '';
-                };
-                $scope.loading = false;
-            });
-        };
-
-        var eventName = $stateParams.eventName;
-        $scope.eventName = eventName;
-        $scope.uploadSuccess = function(data) {
-            $scope.results = data;
-            getPendingPayments();
-        };
-
-        $scope.uploadUrl = '/admin/api/events/'+$stateParams.eventName+'/pending-payments/bulk-confirmation';
-
-        $scope.registerPayment = function(eventName, id) {
-            $scope.loading = true;
-            EventService.registerPayment(eventName, id).then(
-                function() {
-                    getPendingPayments(true);
-                },
-                function() {
-                    $scope.loading = false;
-                }
-            );
-        };
-
-        $scope.showTransactionDialog = function(pendingPaymentDescriptor) {
-            $uibModal.open({
-                size:'md',
-                templateUrl:BASE_STATIC_URL + '/pending-payments/show-transaction-modal.html',
-                backdrop: 'static',
-                controller: function($scope) {
-                    var ctrl = this;
-                    ctrl.paymentInfo = pendingPaymentDescriptor;
-                    ctrl.reservationId = pendingPaymentDescriptor.ticketReservation.id;
-                    ctrl.cancel = function() {
-                        $scope.$dismiss('cancelled');
-                    };
-                    ctrl.confirm = function() {
-                        $scope.$close('CONFIRM');
-                    };
-                    ctrl.discardPayment = function() {
-                        $scope.$close('DISCARD');
-                    };
-                },
-                controllerAs: '$ctrl'
-            }).result.then(function(command) {
-                if(command === 'CONFIRM') {
-                    $scope.loading = true;
-                    return EventService.registerPayment(eventName, pendingPaymentDescriptor.ticketReservation.id);
-                } else if (command === 'DISCARD') {
-                    $scope.loading = true;
-                    return EventService.cancelMatchingPayment(eventName, pendingPaymentDescriptor.ticketReservation.id, pendingPaymentDescriptor.transaction.id);
-                }
-                return null;
-            }).then(function() {
-                getPendingPayments(true);
-            }, function() {
-                $scope.loading = false;
-            });
-        };
-
-        $scope.deletePayment = function(eventName, id, credit) {
-            var confirmPromise = $uibModal.open({
-                size:'md',
-                templateUrl:BASE_STATIC_URL + '/pending-payments/delete-or-credit-modal.html',
-                backdrop: 'static',
-                controller: function($scope) {
-                    var ctrl = this;
-                    ctrl.credit = credit;
-                    ctrl.reservationId = id;
-                    ctrl.notify = !credit;
-                    ctrl.cancel = function() {
-                        $scope.$dismiss('canceled');
-                    };
-                    ctrl.confirm = function() {
-                        $scope.$close(ctrl.notify);
-                    };
-                },
-                controllerAs: '$ctrl'
-            }).result;
-
-            confirmPromise.then(function(notify) {
-                return EventService.cancelPayment(eventName, id, credit, notify);
-            }).then(function() {
-                getPendingPayments(true);
-            }, function() {
-                $scope.loading = false;
-            });
-        };
-    });
-
-    admin.controller('ComposeCustomMessage', function($scope, $stateParams, EventService, $uibModal, $state, $q) {
-
-
-        $q.all([EventService.getSelectedLanguages($stateParams.eventName),
-            EventService.getEvent($stateParams.eventName)])
-        .then(function(results) {
-                $scope.messages = _.map(results[0].data, function(r) {
-                    return {
-                        textExample: '{{organizationName}} <{{organizationEmail}}>',
-                        subjectExample: 'An important message from {{eventName}}',
-                        locale: r.language,
-                        text: '',
-                        subject: '',
-                        attachTicket: false
-                    };
-                });
-                $scope.fullName = 'John Doe';
-
-                $scope.categories = results[1].data.event.ticketCategories;
-                $scope.categoryId = undefined;
-
-                var eventDescriptor = results[1].data;
-                $scope.organization = eventDescriptor.organization;
-                $scope.eventName = eventDescriptor.event.shortName;
-                $scope.eventDisplayName = eventDescriptor.event.displayName;
-                $scope.onlineEvent = eventDescriptor.event.online;
-        });
-
-        $scope.cancel = function() {
-            $state.go('events.single.detail', {eventName: $stateParams.eventName});
-        };
-
-
-        $scope.showPreview = function(frm, eventName, categoryId, messages, categories, online) {
-            if(!frm.$valid) {
-                return;
-            }
-            var error = _.find(messages, function(m) {
-                return _.trim(m.text) === '' || _.trim(m.subject) === '';
-            });
-            if(angular.isDefined(error)) {
-                alert('please fill all the messages');
-                return;
-            }
-            EventService.getMessagesPreview(eventName, categoryId, messages).success(function(result) {
-                var preview = $uibModal.open({
-                    size:'lg',
-                    templateUrl:BASE_STATIC_URL + '/custom-message/preview.html',
-                    backdrop: 'static',
-                    controller: function($scope) {
-                        if(angular.isDefined(categoryId)) {
-                            var category = _.find(categories, function(c) {return c.id === categoryId});
-                            $scope.categoryName = angular.isDefined(category) ? category.name : "";
-                        }
-                        $scope.messages = result.preview;
-                        $scope.affectedUsers = result.affectedUsers;
-                        $scope.eventName = eventName;
-                        $scope.categoryId = categoryId;
-                        $scope.online = online;
-                        $scope.cancel = function() {
-                            $scope.$dismiss('canceled');
-                        };
-                        $scope.sendMessage = function(frm, eventName, categoryId, messages, affectedUsers) {
-                            if(!frm.$valid) {
-                                return;
-                            }
-                            if(affectedUsers === 0 && !confirm('No one will receive this message. Do you really want to continue?')) {
-                                return;
-                            }
-                            $scope.pending = true;
-                            EventService.sendMessages(eventName, categoryId, messages).success(function(result) {
-                                $scope.pending = false;
-                                alert(result + ' messages have been enqueued');
-                                $scope.$close(true);
-                            }).error(function(error) {
-                                $scope.pending = false;
-                                alert(error);
-                            });
-                        };
-                    }
-                });
-            }).error(function(resp) {
-                alert(resp);
-            });
-        };
     });
 
     admin.controller('ShowWaitingQueue', ['WaitingQueueService', '$stateParams', '$state', function(WaitingQueueService, $stateParams, $state) {
