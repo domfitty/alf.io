@@ -9,18 +9,15 @@ services:
             retries: 5
             start_period: 30s
             timeout: 10s
-        ports:
-            - target: 5432
-              published: 5432
-              protocol: tcp
-              mode: host
+        # 5432 non pubblicata (09/10/2026): il DB serve solo ad Alf.io, sulla rete dello stack.
         volumes:
             - /home/domfitty/alfio/postgres-data:/var/lib/postgresql/data
         networks:
             - alfio_default
 
     alfio:
-        image: alfio/alf.io
+        # versione fissata (09/10/2026): stessa immagine in esercizio, digest sha256:cc921decdca2…
+        image: alfio/alf.io:2.0-M5-2609
         env_file:
             - .env
         depends_on:
@@ -34,8 +31,7 @@ services:
     cloudflared:
         image: wisdomsky/cloudflared-web:latest
         restart: unless-stopped
-        ports:
-            - "14333:14333"
+        # pannello web 14333 non pubblicato (09/10/2026): era aperto a tutta la LAN senza login.
         volumes:
             - /home/domfitty/cloudflared_root:/root/.cloudflared
             - /home/domfitty/cloudflared_config:/config
